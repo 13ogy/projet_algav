@@ -1,0 +1,7 @@
+#!/bin/bash
+# Usage: decompresser <fichier_compresse.huff> <fichier.txt>
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <fichier_compresse.huff> <fichier.txt>"
+  exit 1
+fi
+python3 ./decompressor.py "$1" "$2"

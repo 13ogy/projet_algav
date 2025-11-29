@@ -3,7 +3,6 @@ from typing import Optional, List
 
 class BitWriter:
     """Ecrit des bits (MSB->LSB) regroupés en octets; padding 0 à droite si besoin.
-       Conforme aux conventions du sujet [4][5].
     """
     def __init__(self, path: str):
         self.path = path
@@ -80,7 +79,6 @@ class BitWriter:
 
 class BitReader:
     """Lit des bits (MSB->LSB) depuis un fichier binaire, octet par octet.
-       Conforme aux conventions du sujet [4][5].
     """
     def __init__(self, path: str):
         self.path = path

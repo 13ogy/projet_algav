@@ -1,1 +1,1 @@
-input.txt;output.huff;10;16;1.60000;0
+

@@ -21,7 +21,6 @@ class Noeud:
 
 class AHA:
     """Arbre de Huffman Adaptatif (NYT, fin de bloc, échanges sans ancêtre).
-    Référence: cours Huffman dynamique (propriété P, finBloc, traitement) [1][4][5].
     """
 
     def __init__(self) -> None:

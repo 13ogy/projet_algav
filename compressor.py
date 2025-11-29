@@ -23,7 +23,8 @@ def compresser(input_txt: str, output_bin: str):
         text = f.read()
 
     bw = BitWriter(output_bin)
-    # En-tête: nb total de caractères (64 bits, big-endian) pour lever toute ambiguïté liée au padding [4]
+    # En-tête: nb total de caractères (64 bits, big-endian)
+    # pour lever toute ambiguïté liée au padding
     bw.write_u64(len(text))
 
     aha = AHA()

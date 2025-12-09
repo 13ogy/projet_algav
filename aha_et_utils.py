@@ -97,30 +97,31 @@ class AHA:
         return chemin
 
     def contient(self, symbole):
-        # Renvoie le nœud si l'arbre contient le nœud, None sinon
-        # Le parcours se fait en largeur
-        file = [self.racine]
-        taille_file = 1
-        while taille_file > 0:
-            defilage = file.pop(0)
+        """
+        Renvoie le nœud s'il existe dans l'arbre (recherche en largeur), None sinon.
+        """
+        file = deque([self.racine])
+        while file:
+            defilage = file.popleft()
+
             if defilage.caractere == symbole:
-                return defilage
-            taille_file -= 1
+                return defilage # On a trouvé notre nœud
+
             fg = defilage.fg
             fd = defilage.fd
-            if fg is None and fd is None:  # On est sur une feuille
+
+            if fg is None and fd is None:  # Nœud feuille
                 continue
             else:
+                # Enfilage des enfants pour la prochaine itération.
+                if fg is not None:
+                    file.append(fg)
                 if fd is not None:
                     file.append(fd)
-                    taille_file += 1
-                if fg is not None:
-                    taille_file += 1
-                    file.append(fg)
         return None
 
     def modification(self, symbole):
-        # Fonction du cours qui renvoie arbre huffman avec le symbole incrémente
+        # Fonction du cours qui renvoie l'AHA avec le symbole incrémente
         noeud_correspondant = self.contient(symbole)
         est_dans_parcours = noeud_correspondant is not None
         if self.est_vide():  # Cas d'arbre vide

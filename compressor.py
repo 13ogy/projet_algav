@@ -1,101 +1,149 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 import sys
-import time
 import os
-from aha_fgk_oh import AHA
-from bitio import BitWriter
+import time
+import aha_et_utils
+import texte_utils
 
 
-def utf8_bytes_for_char(ch: str) -> bytes:
+def compresser_fichier(chemin_entree: str, chemin_sortie: str) -> None:
     """
-    Convertit un caractère Python (Unicode) en sa séquence d’octets UTF-8.
+    Lit 'chemin_entree' en binaire, octet par octet, puis bit par bit,
+    compresse en bits (algo de compression dans la boucle centrale)
+    et écrit dans 'chemin_sortie' un fichier binaire .huff avec :
+
+        [8 octets en-tête = nb_bits utiles (entier 64 bits, big-endian)]
+        [flux de bits compressés, complété par du padding de 0 jusqu'à l'octet]
     """
-    return ch.encode("utf-8")
+    # Vérifier que le fichier d'entrée existe
+    if not os.path.exists(chemin_entree):
+        print(f"Erreur : le fichier d'entrée '{chemin_entree}' n'existe pas.")
+        sys.exit(1)
+
+    # Ouvrir le fichier d'entrée en lecture binaire
+    try:
+        fin = open(chemin_entree, "rb")
+    except OSError as e:
+        print(f"Erreur à l'ouverture de '{chemin_entree}' en lecture : {e}")
+        sys.exit(1)
+
+    # Ouvrir le fichier de sortie en binaire, en l'écrasant
+    try:
+        fout = open(chemin_sortie, "wb")
+    except OSError as e:
+        fin.close()
+        print(f"Erreur à l'ouverture de '{chemin_sortie}' en écriture binaire : {e}")
+        sys.exit(1)
+
+    # On réserve huit octets pour l'en-tête (nb_bits). On met 0 pour l'instant.
+    fout.write(b"\x00" * 8)
+
+    # État pour l'écriture bit par bit
+    etat = {
+        "current_byte": 0,
+        "bit_pos": 0,  # Nombre de bits actuellement dans current_byte (0..7)
+        "nb_bits": 0,  # Nombre de bits UTILES écrits (sans le padding)
+    }
+
+    debut = time.perf_counter()
+
+    bits = ""
+    arbre = aha_et_utils.AHA()  # Initialise un arbre avec dièse / NYT
+
+    # Initialise une table des caractères déjà vus avec leur codage de huffman correspondant
+    table_correspondance = {"ᛃ": "0"}
+    buffer = ""  # Se remplira petit à petit des bits
+
+    # ---------------  BOUCLE PRINCIPALE ---------------
+    # Lecture binaire, octet par octet, puis bit par bit ---
+    try:
+        while True:
+            chunk = fin.read(1)  # <<< lecture octet par octet
+            if not chunk:
+                break
+
+            byte = chunk[0]  # Entier 0–255
+
+            # Pour chaque octet, on lit les 8 bits (MSB -> LSB)
+            for bit_index in range(7, -1, -1):
+                bit_val = (byte >> bit_index) & 1
+
+                bit = "1" if bit_val == 1 else "0"  # Un bit en str
+                buffer += bit
+                if texte_utils.is_single_utf8_char(
+                    buffer
+                ):  # La suite de bits dans buffer représente un caractère utf 8
+                    ch = texte_utils.bits_to_char(buffer)
+                    buffer = ""
+
+                    if ch in table_correspondance:  # On a déjà vu le caractère
+
+                        bits += arbre.encodage_caractere_arbre(
+                            ch
+                        )  # On utilise son codage compressé
+
+                    else:  # Caractère nouveau
+
+                        bits += table_correspondance[
+                            "ᛃ"
+                        ]  # Transmet le caractère spécial
+
+                        bits += texte_utils.char_to_bits(ch)  # Ajoute l'encodage utf 8
+
+                    arbre.modification(ch)  # Actualise l'arbre
+
+                    table_correspondance[ch] = arbre.encodage_caractere_arbre(
+                        ch
+                    )  # Actualise la table
+
+                    table_correspondance["ᛃ"] = arbre.encodage_caractere_arbre(
+                        "ᛃ"
+                    )  # Actualise la table pour le caractère spécial
+
+                    if bits:
+                        texte_utils.ecrire_bits(
+                            fout, bits, etat
+                        )  # Écrits dans le fichier
+                        bits = ""
+    # --------------- FIN BOUCLE ---------------
+
+    finally:
+        fin.close()
+
+    # --- Padding : compléter le dernier octet avec des '0' si besoin ---
+    if etat["bit_pos"] > 0:
+        # On décale les bits restants vers la gauche pour remplir l'octet
+        etat["current_byte"] <<= 8 - etat["bit_pos"]
+        fout.write(bytes([etat["current_byte"]]))
+        # nb_bits NE CHANGE PAS : on ne compte pas le padding dans nb_bits
+
+    # --- Écriture réelle de l'en-tête avec nb_bits ---
+    nb_bits = etat["nb_bits"]
+    # On revient au début du fichier
+    fout.seek(0)
+    # Écrit nb_bits sur 8 octets (entier 64 bits, big-endian)
+    fout.write(nb_bits.to_bytes(8, byteorder="big"))
+
+    fout.close()
+    duree = int((time.perf_counter() - debut) * 1000)  # * 1000 pour les millisecondes
+
+    # Mise à jour du registre comme avant
+    aha_et_utils.mettre_a_jour_registre_compression(chemin_entree, chemin_sortie, duree)
+
+    print(f"Compression terminée : '{chemin_entree}' → '{chemin_sortie}'")
 
 
-def os_path_size(path: str) -> int:
-    """
-    Retourne la taille d’un fichier en octets.
-    """
-    return os.path.getsize(path)
+def main():
+    if len(sys.argv) != 3:  # Vérification de nb d'arguments
+        print(f"Usage : {sys.argv[0]} <fichier_entree.txt> <fichier_sortie.huff>")
+        sys.exit(1)
 
+    # Récupération des arguments
+    chemin_entree = sys.argv[1]
+    chemin_sortie = sys.argv[2]
 
-def append_stats(
-        filename: str,
-        in_name: str,
-        out_name: str,
-        in_bytes: int,
-        out_bytes: int,
-        ratio: float,
-        ms: int
-) -> None:
-    """
-    Ajoute une ligne de statistiques dans 'filename' (mode append):
-      in_name;out_name;in_bytes;out_bytes;ratio;ms
-    """
-    line = f"{in_name};{out_name};{in_bytes};{out_bytes};{ratio:.5f};{ms}\n"
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(line)
-
-
-def compresser(input_txt: str, output_bin: str) -> None:
-    """
-    Lit 'input_txt' (UTF-8), compresse le contenu en utilisant l’AHA et écrit le résultat binaire
-    dans 'output_bin'. Un en-tête 64 bits (big-endian) stocke le nombre total de caractères
-    afin de désambiguïser le padding en fin de flux.
-
-    Le code de chaque caractère est écrit sous forme de bits (via BitWriter.write_bits_from_str01),
-    et, pour les premières occurrences, la séquence d’octets UTF-8 du caractère est écrite.
-    """
-    # Début du chronométrage
-    t0 = time.time()
-
-    # Lecture du texte source
-    with open(input_txt, "r", encoding="utf-8") as f:
-        text = f.read()
-
-    # Ouverture du fichier binaire de sortie + en-tête (nombre total de caractères)
-    bit_writer = BitWriter(output_bin)
-    bit_writer.write_u64(len(text))
-
-    # Initialisation de l’arbre Huffman adaptatif
-    aha = AHA()
-
-    # Parcours du texte, compression symbole par symbole
-    for ch in text:
-        # Obtenir le code courant pour ce symbole
-        is_new, code_bits = aha.encoder_symbole(ch)
-
-        # 1) Ecrire les bits du code (si nouveau => code de NYT)
-        bit_writer.write_bits_from_str01(code_bits)
-
-        # 2) Si première occurrence, écrire ensuite les octets UTF-8 du caractère
-        if is_new:
-            for byte_val in utf8_bytes_for_char(ch):
-                bit_writer.write_byte(byte_val)
-
-        # 3) Mettre à jour l’arbre (adaptation)
-        aha.mise_a_jour(ch)
-
-    # Fermer le flux binaire (flush des bits restants + fermeture)
-    bit_writer.close()
-
-    # Fin chronométrage
-    t1 = time.time()
-
-    # Statistiques de compression
-    input_bytes = len(text.encode("utf-8"))
-    output_bytes = os_path_size(output_bin)
-    ratio = (output_bytes / input_bytes) if input_bytes > 0 else 1.0
-    elapsed_ms = int((t1 - t0) * 1000)
-
-    append_stats("compression.txt", input_txt, output_bin, input_bytes, output_bytes, ratio, elapsed_ms)
+    compresser_fichier(chemin_entree, chemin_sortie)
 
 
 if __name__ == "__main__":
-    # Usage simple: compresser <fichier.txt> <fichier_compresse.huff>
-    if len(sys.argv) != 3:
-        print("Usage: compresser <fichier.txt> <fichier_compresse.huff>")
-        sys.exit(1)
-    compresser(sys.argv[1], sys.argv[2])
+    main()

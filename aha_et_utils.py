@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+from collections import deque
 
 
 # Structure des nœuds de l'arbre AHA
@@ -38,24 +39,27 @@ class AHA:
         return noeud_courant.fd
 
     def parcours_largeur_inverse(self):
-        # Renvoie une liste de nœuds représentant un parcours en largeur où on explore d'abord le fils droit puis le gauche
-        file = [self.racine]  # Utilisation d'une list comme une file
+        """
+        Renvoie une liste de nœuds représentant un parcours en largeur (BFS)
+        """
+        file = deque([self.racine])
         liste_retour = []
-        taille_file = 1
-        while taille_file > 0:
-            defilage = file.pop(0)
-            taille_file -= 1
+        # La boucle s'exécute tant que la file contient des nœuds à traiter
+        while file:
+            # Récupération du nœud en tête de file
+            defilage = file.popleft()
+
             liste_retour.append(defilage)
             fg = defilage.fg
             fd = defilage.fd
-            if fg is None and fd is None:  # On est sur une feuille
+
+            if fg is None and fd is None:  # Nœud feuille
                 continue
             else:
+                # On explore le fils droit puis le fils gauche
                 if fd is not None:
                     file.append(fd)
-                    taille_file += 1
                 if fg is not None:
-                    taille_file += 1
                     file.append(fg)
         return liste_retour
 
@@ -93,7 +97,7 @@ class AHA:
         return chemin
 
     def contient(self, symbole):
-        # Renvoie le noeud si l'arbre contient le nœud, None sinon
+        # Renvoie le nœud si l'arbre contient le nœud, None sinon
         # Le parcours se fait en largeur
         file = [self.racine]
         taille_file = 1

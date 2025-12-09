@@ -2,11 +2,14 @@
 from __future__ import annotations
 import argparse
 import json
-import math
 import random
 from collections import Counter
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 
+"""
+FONCTIONS IA
+Qui génèrent des fichiers avec un texte aléatoire (UTF-8) à distribution contrôlée et les statistiques de réparation des caractères.
+"""
 def normalize(weights: List[float]) -> List[float]:
     s = sum(weights)
     if s <= 0:
@@ -104,6 +107,7 @@ def main():
     elif args.mode == "zipf":
         if args.zipf_s <= 0:
             raise ValueError("--zipf_s doit être > 0")
+
         # ordre naturel de l'alphabet = rang 1..k
         probs = build_zipf_probs(k, args.zipf_s)
         text = "".join(categorical(alphabet, probs) for _ in range(N))
@@ -116,6 +120,7 @@ def main():
             raise ValueError("len(bigram_init) doit être égal à |alphabet|")
         init_probs = normalize(init_raw)
         trans_raw = json.loads(args.bigram_trans)
+
         # valider toutes les clés et longueurs
         trans: Dict[str, List[float]] = {}
         for ch in alphabet:

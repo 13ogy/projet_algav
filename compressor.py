@@ -62,11 +62,6 @@ def compresser(input_txt: str, output_bin: str) -> None:
     # Initialisation de l’arbre Huffman adaptatif
     aha = AHA()
 
-    # Variables de diagnostic (facultatif)
-    total_code_bits = 0            # Somme des longueurs de codes (en bits)
-    total_utf8_bytes_written = 0   # Nombre total d’octets UTF-8 écrits (premières occurrences)
-    first_occurrences = 0          # Nombre de premières occurrences
-
     # Parcours du texte, compression symbole par symbole
     for ch in text:
         # Obtenir le code courant pour ce symbole
@@ -74,14 +69,11 @@ def compresser(input_txt: str, output_bin: str) -> None:
 
         # 1) Ecrire les bits du code (si nouveau => code de NYT)
         bit_writer.write_bits_from_str01(code_bits)
-        total_code_bits += len(code_bits)
 
         # 2) Si première occurrence, écrire ensuite les octets UTF-8 du caractère
         if is_new:
-            first_occurrences += 1
             for byte_val in utf8_bytes_for_char(ch):
                 bit_writer.write_byte(byte_val)
-                total_utf8_bytes_written += 1
 
         # 3) Mettre à jour l’arbre (adaptation)
         aha.mise_a_jour(ch)
@@ -99,23 +91,6 @@ def compresser(input_txt: str, output_bin: str) -> None:
     elapsed_ms = int((t1 - t0) * 1000)
 
     append_stats("compression.txt", input_txt, output_bin, input_bytes, output_bytes, ratio, elapsed_ms)
-
-    # Diagnostic utile: le “payload” est la somme (bits de codes) + (8 * octets UTF-8 écrits)
-    payload_bits = total_code_bits + 8 * total_utf8_bytes_written
-    payload_bps = payload_bits / max(1, len(text))  # bits par symbole
-
-    print(
-        "[DEBUG] "
-        f"N={len(text)} "
-        f"first_occ={first_occurrences} "
-        f"code_bits={total_code_bits} "
-        f"utf8_bytes_written={total_utf8_bytes_written} "
-        f"payload_bits={payload_bits} "
-        f"payload_bps={payload_bps:.3f} "
-        f"file_bytes={output_bytes} "
-        f"header_bytes=8 "
-        f"approx_payload_bytes={output_bytes - 8}"
-    )
 
 
 if __name__ == "__main__":

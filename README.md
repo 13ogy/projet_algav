@@ -2,17 +2,18 @@
 
 - Version de Python utilisé : 3.13
 
-- creation de .venv
+- Création de .venv
 ```
-python -m venv.venv
+python -m venv .venv
 ```
 
+- Activation de l'environnement virtuel et des fichiers exécutables
 ```
 source .venv/bin/activate
 chmod +x compresser decompresser
 ```
 
-- usage
+- Usage principal
 ```
 ./compresser input.txt output.huff
 ./decompresser output.huff back.txt

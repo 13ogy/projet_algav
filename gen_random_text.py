@@ -20,7 +20,7 @@ def normalize(weights: List[float]) -> List[float]:
 
 def categorical(choices: List[str], probs: List[float]) -> str:
     """
-    Tirage catégoriel (discret). Sélectionne un caractère selon la distribution 'probs'.
+    Tirage catégoriel. Sélectionne un caractère selon la distribution 'probs'.
     """
     r = random.random()
     acc = 0.0 # Accumulateur de probabilité
@@ -65,7 +65,8 @@ def write_stats_csv(path: str, text: str) -> None:
 
 def generate_text_by_mode(mode: str, N: int, alphabet: List[str], weights: List[float] = None, zipf_s: float = 1.0) -> str:
     """
-    Fonction de haut niveau pour générer le texte selon le mode spécifié.
+    Fonction qui génère le texte selon le mode spécifié.
+    Utilise categorical() pour la génération des caractères
     """
     k = len(alphabet)
 

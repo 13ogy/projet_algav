@@ -21,6 +21,7 @@ class AHA:
         self.racine = self.dieze
         self.racine.parent = None
         self.dieze.poids = 0
+        self.nodes = {"ᛃ": self.dieze} # Hashmap des feuilles, pour que contient() s'exécute en O(1)
 
     def est_vide(self):
         if self.racine == self.dieze:
@@ -40,7 +41,7 @@ class AHA:
 
     def parcours_largeur_inverse(self):
         """
-        Renvoie une liste de nœuds représentant un parcours en largeur (BFS)
+        Renvoie une liste de nœuds représentant un parcours en largeur
         """
         file = deque([self.racine])
         liste_retour = []
@@ -71,7 +72,7 @@ class AHA:
 
     def fin_de_bloc(self, noeud):
         # Renvoie le nœud de fin de bloc
-        # — le premier avec un poids différent du nœud en argument
+        # — le nœud avant le premier nœud avec un poids différent du nœud en argument
         gdbh = self.parcours_gdbh() # On récupère le parcours gdbh
         bloc = False
         for i in range(len(gdbh) - 1):
@@ -85,7 +86,9 @@ class AHA:
         ]  # Cas où la racine serait le dernier élément de fin de bloc → c'est elle qu'on renvoie
 
     def chemin_jusqua_racine(self, noeud):
-        # Renvoie le chemin jusqu'à la racine
+        """
+        Renvoie la liste des nœuds du nœud donné jusqu'à la racine (inclus), dans l'ordre du nœud à la racine.
+        """
         nouveau_noeud = noeud
         chemin = []
         continuer = True
@@ -98,32 +101,15 @@ class AHA:
 
     def contient(self, symbole):
         """
-        Renvoie le nœud s'il existe dans l'arbre (recherche en largeur), None sinon.
+        Renvoie le nœud s'il existe dans l'arbre, None sinon.
         """
-        file = deque([self.racine])
-        while file:
-            defilage = file.popleft()
-
-            if defilage.caractere == symbole:
-                return defilage # On a trouvé notre nœud
-
-            fg = defilage.fg
-            fd = defilage.fd
-
-            if fg is None and fd is None:  # Nœud feuille
-                continue
-            else:
-                # Enfilage des enfants pour la prochaine itération.
-                if fg is not None:
-                    file.append(fg)
-                if fd is not None:
-                    file.append(fd)
-        return None
+        return self.nodes.get(symbole, None)
 
     def modification(self, symbole):
         # Fonction du cours qui renvoie l'AHA avec le symbole incrémente
         noeud_correspondant = self.contient(symbole)
         est_dans_parcours = noeud_correspondant is not None
+
         if self.est_vide():  # Cas d'arbre vide
             self.racine = Noeud("vide")
             self.racine.poids = 1
@@ -132,6 +118,7 @@ class AHA:
             self.racine.fd = Noeud(symbole)
             self.racine.fd.parent = self.racine
             self.racine.parent = None
+            self.nodes[symbole] = self.racine.fd
             return self
 
         elif not est_dans_parcours:
@@ -143,6 +130,7 @@ class AHA:
             nouveau_noeud.parent = Q
             self.dieze = nouveau_noeud.fg
             Q.fg = nouveau_noeud  # On sait que c'est fg puisqu'on met toujours le dièze à gauche
+            self.nodes[symbole] = nouveau_noeud.fd
         else:
             Q = noeud_correspondant
             if Q.parent is not None and (Q.parent.fg.caractere == "ᛃ") and Q.parent == self.fin_de_bloc(Q):

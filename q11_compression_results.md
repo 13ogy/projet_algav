@@ -31,9 +31,9 @@
 ```
 (.venv) bogy@Bogdans-MacBook-Pro-2 projet_algav % ./compresser ilp.txt ilp.huff
 ```
-- ilp.txt;ilp.huff;33240;18425;0.55430;1791
+- ilp.txt;ilp.huff;33240;18425;0.55430;1600
 
 ```
 (.venv) bogy@Bogdans-MacBook-Pro-2 projet_algav % ./compresser sorbonne_html.txt html_comp.huff
 ```
-- sorbonne_html.txt;html_comp.huff;285050;114094;0.40026;13945
+- sorbonne_html.txt;html_comp.huff;285050;114094;0.40026;12209

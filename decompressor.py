@@ -39,7 +39,6 @@ def decomprimer_fichier(chemin_entree: str, chemin_sortie: str) -> None:
             noeud = arbre.racine  # On commence le parcours depuis la racine
             texte_init = ""  # Sert quand on vient de rencontrer un dieze
 
-            caracterecorrespondant = ""  # Quand on est sur une feuille
             test = (
                 lecteur_bits.lire_bit()
             )  # Lit le premier bit qui est nécessairement un dièze donc 0
@@ -80,32 +79,22 @@ def decomprimer_fichier(chemin_entree: str, chemin_sortie: str) -> None:
                     else:  # N'arrive qu'en fin de parcours
                         pass
 
-                if (
-                    caractere_trouve
-                ):  # Peut s'effectuer juste après, toujours avec le même caractère que dans le elif ci dessus
-
-                    caracterecorrespondant = (
-                        noeud.caractere
-                    )  # Lit a partir du curseur et renvoie un caractere, sa profondeur, et son chemin binaire
+                if caractere_trouve:
+                    caracterecorrespondant = noeud.caractere
 
                     noeud = arbre.racine  # On recommence le parcours depuis la racine
 
-                    if (
-                        caracterecorrespondant == "ᛃ"
-                    ):  # On ne vas pas écrire # dans le fichier
-
-                        post_dieze = True  # Pour le prochain tour de boucle on ira chercher dans le codage utf8
+                    if caracterecorrespondant == "ᛃ":  # On ne va pas écrire # dans le fichier
+                        post_dieze = True  # Pour le prochain tour de boucle, on ira chercher dans le codage utf8
                         en_cours_de_parcours = False
 
                     else:  # On écrit le caractere en utf8
-
                         fichier_sortie.write(
                             caracterecorrespondant
                         )  # Écrit dans le fichier
                         arbre.modification(
                             caracterecorrespondant
                         )  # On actualise l'arbre
-                        caracterecorrespondant = ""
                         en_cours_de_parcours = True  # Indique dans la boucle si on doit rechercher dans l'arborescence
                         post_dieze = False  # Au cas ou
 
@@ -126,17 +115,11 @@ def decomprimer_fichier(chemin_entree: str, chemin_sortie: str) -> None:
 
                     if texte_utils.is_single_utf8_char(
                         texte_init
-                    ):  # La suite de bits dans le texte init représente un caractère utf 8
+                    ):  # La suite de bits dans le texte init représente un caractère utf-8
 
                         caracterecorrespondant = texte_utils.bits_to_char(texte_init)
-
-                        fichier_sortie.write(
-                            caracterecorrespondant
-                        )  # Écrit dans le fichier
-                        arbre.modification(
-                            caracterecorrespondant
-                        )  # On actualise l'arbre
-                        caracterecorrespondant = ""
+                        fichier_sortie.write(caracterecorrespondant)  # Écrit dans le fichier
+                        arbre.modification(caracterecorrespondant)  # On actualise l'arbre
                         post_dieze = False
                         en_cours_de_parcours = True  # Indique dans la boucle si on doit rechercher dans l'arborescence
                         caractere_trouve = False  # Indique dans la boucle si on a trouvé un caractere dans l'arbre

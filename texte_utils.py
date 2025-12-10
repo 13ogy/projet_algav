@@ -64,54 +64,30 @@ def is_single_utf8_char(bits: str) -> bool:
     """
     Vérifie si la chaîne de bits correspond à un code UTF-8 valide.
     """
-    bits = bits.replace(" ", "")  # Enlevé les espaces éventuels
-    if len(bits) == 0 or len(bits) % 8 != 0 or len(bits) > 32:  # Vérification de la taille
+    bits_str = bits.replace(" ", "") # On se débarrasse des espaces
+    if len(bits_str) == 0 or len(bits_str) % 8 != 0 or len(bits_str) > 32: # Doit être un multiple d'octets, max 4 octets pour UTF-8
+        return False
+    try:
+        # On découpe la chaîne en blocs de 8 bits et on les convertit en octets
+        octets_list = [int(bits_str[i:i+8], 2) for i in range(0, len(bits_str), 8)]
+
+        # On transforme la liste d'octets en objet 'bytes'
+        byte_sequence = bytes(octets_list)
+    except ValueError: # Conversion échouée
         return False
 
-    b = [int(bits[i : i + 8], 2) for i in range(0, len(bits), 8)] # Convertir en octets
-    first = b[0]
+    try:
+        # Décode l'objet 'bytes'
+        caractere = byte_sequence.decode("utf-8", errors="strict")
 
-    # Vérification la longueur attendue et le début du point de code
-    if first & 0b10000000 == 0:  # 0xxxxxxx
-        expected = 1
-        cp = first & 0b01111111
-    elif first & 0b11100000 == 0b11000000:  # 110xxxxx
-        expected = 2
-        cp = first & 0b00011111
-    elif first & 0b11110000 == 0b11100000:  # 1110xxxx
-        expected = 3
-        cp = first & 0b00001111
-    elif first & 0b11111000 == 0b11110000:  # 11110xxx
-        expected = 4
-        cp = first & 0b00000111
-    else:
-        return False
-
-    # Doit avoir exactement expected octets
-    if len(b) != expected:
-        return False
-
-    # Vérifie les octets de continuation et reconstruire le point de code
-    for c in b[1:]:
-        if c & 0b11000000 != 0b10000000:  # Doit être 10xxxxxx
+        if len(caractere) == 1: # On valide qu'il s'agit d'un seul caractère
+            return True
+        else:
             return False
-        cp = (cp << 6) | (c & 0b00111111)
-
-    # Vérification des bornes
-    if expected == 1 and not (0x0 <= cp <= 0x7F):
+    except UnicodeDecodeError: # Erreur levée par Python si le binaire n'est pas un UTF-8 valide
         return False
-    if expected == 2 and not (0x80 <= cp <= 0x7FF):
+    except Exception: # Capture d'autres erreurs possibles
         return False
-    if expected == 3 and not (0x800 <= cp <= 0xFFFF):
-        return False
-    if expected == 4 and not (0x10000 <= cp <= 0x10FFFF):
-        return False
-
-    # On exclut les surrogates UTF-16
-    if 0xD800 <= cp <= 0xDFFF:
-        return False
-
-    return True
 
 
 def ecrire_bits(fout, bits: str, etat):

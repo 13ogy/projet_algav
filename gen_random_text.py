@@ -1,93 +1,130 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 import argparse
-import json
 import random
 from collections import Counter
-from typing import List, Dict
+from typing import List
 
 """
-FONCTIONS IA
-Qui génèrent des fichiers avec un texte aléatoire (UTF-8) à distribution contrôlée et les statistiques de réparation des caractères.
+Fonctions pour générer des textes aléatoires avec des distributions 
+de probabilité contrôlées (Uniforme, Zipf, Pondérée) pour les tests (Q9).
 """
+
 def normalize(weights: List[float]) -> List[float]:
+    """
+    Normalise une liste de poids bruts pour obtenir une distribution de probabilité valide
+    """
     s = sum(weights)
     if s <= 0:
         raise ValueError("La somme des poids doit être > 0")
     return [w / s for w in weights]
 
 def categorical(choices: List[str], probs: List[float]) -> str:
-    # tirage discret selon probs (déjà normalisées)
+    """
+    Tirage catégoriel (discret). Sélectionne un caractère selon la distribution 'probs'.
+    """
     r = random.random()
-    acc = 0.0
+    acc = 0.0 # Accumulateur de probabilité
+
+    # Parcours des probabilités cumulées
     for ch, p in zip(choices, probs):
         acc += p
         if r <= acc:
             return ch
+
     return choices[-1]
 
 def build_zipf_probs(k: int, s: float) -> List[float]:
-    # Proba ∝ 1/(rank^s), rank = 1..k
+    """
+    Construit une distribution de type Zipf (loi de puissance).
+    La probabilité est inversement proportionnelle au rang à la puissance 's'.
+    """
+    # Calcule les poids bruts (1/rang^s)
     raw = [1.0 / (i ** s) for i in range(1, k + 1)]
+
+    # Normalise les poids pour obtenir des probabilités
     return normalize(raw)
 
-def sample_bigram(
-        N: int,
-        alphabet: List[str],
-        init_probs: List[float],
-        trans: Dict[str, List[float]],
-) -> str:
-    # génération Markov 1-ordre: P(X_0), P(X_t | X_{t-1})
-    out = []
-    cur = categorical(alphabet, init_probs)
-    out.append(cur)
-    for _ in range(N - 1):
-        next_probs = trans[cur]
-        nxt = categorical(alphabet, next_probs)
-        out.append(nxt)
-        cur = nxt
-    return "".join(out)
-
 def write_stats_csv(path: str, text: str) -> None:
+    """
+    Calcule et écrit les statistiques de fréquence
+    des caractères observés dans le texte généré vers un fichier CSV.
+    """
     counts = Counter(text)
     n = len(text)
     lines = ["char,count,rel_freq"]
+
+    # Trie par fréquence décroissante
     for ch, c in sorted(counts.items(), key=lambda x: (-x[1], x[0])):
         rf = c / n if n > 0 else 0.0
         printable = ch.replace("\n", "\\n")
         lines.append(f"{printable},{c},{rf:.6f}")
+
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
+
+def generate_text_by_mode(mode: str, N: int, alphabet: List[str], weights: List[float] = None, zipf_s: float = 1.0) -> str:
+    """
+    Fonction de haut niveau pour générer le texte selon le mode spécifié.
+    """
+    k = len(alphabet)
+
+    if mode == "uniform":
+        # Tous les caractères ont une probabilité égale
+        probs = [1.0 / k] * k
+        text = "".join(categorical(alphabet, probs) for _ in range(N))
+
+    elif mode == "weighted":
+        # Utilise des poids fournis manuellement pour créer une asymétrie
+        if weights is None or len(weights) != k:
+            raise ValueError("Poids invalides ou manquants pour le mode pondéré.")
+        probs = normalize(weights)
+        text = "".join(categorical(alphabet, probs) for _ in range(N))
+
+    elif mode == "zipf":
+        # Distribution de type loi de puissance
+        probs = build_zipf_probs(k, zipf_s)
+        text = "".join(categorical(alphabet, probs) for _ in range(N))
+
+    else:
+        raise ValueError(f"Mode de génération inconnu ou non pris en charge: {mode}.")
+
+    return text
+
+
+# ------ Logique du main ----------
 def main():
     parser = argparse.ArgumentParser(description="Générateur de texte aléatoire (UTF-8) à distribution contrôlée (Q9).")
+
+    # Arguments nécessaires
     parser.add_argument("--output", "-o", required=True, help="Fichier texte de sortie (UTF-8)")
     parser.add_argument("--N", type=int, required=True, help="Nombre de caractères à générer")
-    parser.add_argument("--alphabet", type=str, default="abcdefghijklmnopqrstuvwxyz",
-                        help="Alphabet à utiliser (chaîne UTF-8). Par défaut: lettres minuscules a-z")
-    parser.add_argument("--mode", choices=["uniform", "weighted", "zipf", "bigram"], required=True,
+    parser.add_argument("--alphabet", type=str, default="abcdefghijklmnopqrstuvwxyz ",
+                        help="Alphabet à utiliser (chaîne UTF-8). Par défaut: lettres minuscules a-z + espace")
+    parser.add_argument("--mode", choices=["uniform", "weighted", "zipf"], required=True,
                         help="Type de distribution")
-    parser.add_argument("--seed", type=int, default=42, help="Graine RNG pour reproductibilité")
+
+    # Arguments optionnels pour la configuration
+    parser.add_argument("--seed", type=int, default=42, help="Graine RNG pour reproductibilité (supprimé dans la version concise, restauré ici pour le parsing)")
     parser.add_argument("--stats", type=str, default="", help="Fichier CSV pour enregistrer les fréquences observées")
-    # weighted
     parser.add_argument("--weights", type=str, default="",
-                        help="Liste de poids séparés par des virgules (ex: 10,1,1,...). Longueur = |alphabet|")
-    # zipf
+                        help="[MODE weighted] Liste de poids séparés par des virgules (Longueur = |alphabet|)")
     parser.add_argument("--zipf_s", type=float, default=1.0,
-                        help="Paramètre s de Zipf (s>0); plus grand s => distribution plus concentrée")
-    # bigram
-    parser.add_argument("--bigram_init", type=str, default="",
-                        help='Probas initiales, liste de poids séparés par virgules (longueur = |alphabet|)')
-    parser.add_argument("--bigram_trans", type=str, default="",
-                        help='JSON: dictionnaire état->liste de poids (longueur = |alphabet|), ex: {"a":[...],"b":[...],...}')
+                        help="[MODE zipf] Paramètre s de Zipf (s>0).")
 
     args = parser.parse_args()
+
+    # Restauration de la graine aléatoire pour la reproductibilité
     random.seed(args.seed)
 
     alphabet = list(args.alphabet)
     k = len(alphabet)
     N = args.N
+    text = ""
 
+    # -------------------------------------------------------------------------
+    # Logique de génération selon le mode
+    # -------------------------------------------------------------------------
     if args.mode == "uniform":
         probs = [1.0 / k] * k
         text = "".join(categorical(alphabet, probs) for _ in range(N))
@@ -99,8 +136,10 @@ def main():
             w = [float(x) for x in args.weights.split(",")]
         except Exception as e:
             raise ValueError("--weights doit être une liste de nombres séparés par des virgules") from e
+
         if len(w) != k:
             raise ValueError("len(weights) doit être égal à |alphabet|")
+
         probs = normalize(w)
         text = "".join(categorical(alphabet, probs) for _ in range(N))
 
@@ -108,33 +147,12 @@ def main():
         if args.zipf_s <= 0:
             raise ValueError("--zipf_s doit être > 0")
 
-        # ordre naturel de l'alphabet = rang 1..k
         probs = build_zipf_probs(k, args.zipf_s)
         text = "".join(categorical(alphabet, probs) for _ in range(N))
 
-    elif args.mode == "bigram":
-        if not args.bigram_init or not args.bigram_trans:
-            raise ValueError("--bigram_init et --bigram_trans requis en mode bigram")
-        init_raw = [float(x) for x in args.bigram_init.split(",")]
-        if len(init_raw) != k:
-            raise ValueError("len(bigram_init) doit être égal à |alphabet|")
-        init_probs = normalize(init_raw)
-        trans_raw = json.loads(args.bigram_trans)
-
-        # valider toutes les clés et longueurs
-        trans: Dict[str, List[float]] = {}
-        for ch in alphabet:
-            if ch not in trans_raw:
-                raise ValueError(f"Transition manquante pour état '{ch}'")
-            row = [float(x) for x in trans_raw[ch]]
-            if len(row) != k:
-                raise ValueError(f"len(transition['{ch}']) doit être égal à |alphabet|")
-            trans[ch] = normalize(row)
-        text = sample_bigram(N, alphabet, init_probs, trans)
-
-    else:
-        raise ValueError("Mode inconnu")
-
+    # -------------------------------------------------------------------------
+    # Sortie
+    # -------------------------------------------------------------------------
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(text)
 

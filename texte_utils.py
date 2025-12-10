@@ -1,7 +1,7 @@
 class LecteurBits:
     """
     Lit des bits (0/1) à partir d'un flux binaire.
-    On limite à nb_bits_utiles pour ignorer le padding final.
+    On utilise nb_bits_utiles pour ignorer le padding final.
     """
 
     def __init__(self, fichier_binaire, nb_bits_utiles: int):
@@ -34,8 +34,6 @@ class LecteurBits:
     def lire_n_bits(self, n: int) -> str:
         """
         Lit n bits et les renvoie sous forme de chaîne '0'/'1'.
-        Peut renvoyer moins de n bits si la fin est atteinte.
-        Utile si tu veux lire un octet complet après un NYT par exemple.
         """
         bits = []
         for _ in range(n):
@@ -57,7 +55,7 @@ def bits_to_char(bits: str) -> str:
     """
     Convertit une chaîne de bits en caractère UTF-8.
     """
-    # Découper la chaîne en groupes de 8 bits
+    # Découpe la chaîne en groupes de 8 bits
     bytes_list = [int(bits[i : i + 8], 2) for i in range(0, len(bits), 8)]
     return bytes(bytes_list).decode("utf-8")
 
@@ -66,18 +64,14 @@ def is_single_utf8_char(bits: str) -> bool:
     """
     Vérifie si la chaîne de bits correspond à un code UTF-8 valide.
     """
-    # Enlever les espaces éventuels
-    bits = bits.replace(" ", "")
-
-    # Longueur 8, 16, 24 ou 32 bits
-    if len(bits) == 0 or len(bits) % 8 != 0 or len(bits) > 32:
+    bits = bits.replace(" ", "")  # Enlevé les espaces éventuels
+    if len(bits) == 0 or len(bits) % 8 != 0 or len(bits) > 32:  # Vérification de la taille
         return False
 
-    # Convertir en octets
-    b = [int(bits[i : i + 8], 2) for i in range(0, len(bits), 8)]
+    b = [int(bits[i : i + 8], 2) for i in range(0, len(bits), 8)] # Convertir en octets
     first = b[0]
 
-    # Déterminer la longueur attendue et le début du point de code
+    # Vérification la longueur attendue et le début du point de code
     if first & 0b10000000 == 0:  # 0xxxxxxx
         expected = 1
         cp = first & 0b01111111
@@ -97,7 +91,7 @@ def is_single_utf8_char(bits: str) -> bool:
     if len(b) != expected:
         return False
 
-    # Vérifier les octets de continuation et reconstruire le point de code
+    # Vérifie les octets de continuation et reconstruire le point de code
     for c in b[1:]:
         if c & 0b11000000 != 0b10000000:  # Doit être 10xxxxxx
             return False
@@ -113,7 +107,7 @@ def is_single_utf8_char(bits: str) -> bool:
     if expected == 4 and not (0x10000 <= cp <= 0x10FFFF):
         return False
 
-    # Exclure les surrogates UTF-16
+    # On exclut les surrogates UTF-16
     if 0xD800 <= cp <= 0xDFFF:
         return False
 
